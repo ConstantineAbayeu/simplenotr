@@ -32,6 +32,7 @@ struct SidebarView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .focusSidebar)) { _ in
             sidebarFocused = true
+            focusedItem = focusedItem ?? selectedItem
         }
         .onAppear { setupKeyMonitor() }
         .onDisappear { removeKeyMonitor() }
@@ -79,8 +80,13 @@ struct SidebarView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .onChange(of: focusedItem) { item in
+                if let item, sidebarFocused {
+                    withAnimation { proxy.scrollTo(item.id, anchor: .center) }
+                }
+            }
             .onChange(of: selectedItem) { item in
-                if let item {
+                if let item, !sidebarFocused {
                     withAnimation { proxy.scrollTo(item.id, anchor: .center) }
                 }
             }
@@ -94,7 +100,7 @@ struct SidebarView: View {
             SidebarRow(
                 item: item,
                 depth: depth,
-                isSelected: selectedItem == item,
+                isSelected: sidebarFocused ? focusedItem == item : selectedItem == item,
                 isExpanded: expandedFolders.contains(item.url),
                 renamingItem: $renamingItem,
                 renameText: $renameText,
@@ -156,8 +162,10 @@ struct SidebarView: View {
     // MARK: - Actions
 
     private func handleTap(_ item: NoteItem) {
+        // Clicks open files immediately and sync both cursors.
         selectedItem = item
-        sidebarFocused = true
+        focusedItem = item
+        sidebarFocused = false
         if item.isFolder { toggleFolder(item) }
     }
 
@@ -258,37 +266,39 @@ struct SidebarView: View {
     private func moveSelection(by offset: Int) {
         let flat = flatVisibleItems
         guard !flat.isEmpty else { return }
-        if let current = selectedItem, let idx = flat.firstIndex(of: current) {
-            let next = (idx + offset).clamped(to: 0...(flat.count - 1))
-            selectedItem = flat[next]
+        let current = focusedItem ?? selectedItem
+        if let current, let idx = flat.firstIndex(of: current) {
+            focusedItem = flat[(idx + offset).clamped(to: 0...(flat.count - 1))]
         } else {
-            selectedItem = offset > 0 ? flat.first : flat.last
+            focusedItem = offset > 0 ? flat.first : flat.last
         }
     }
 
     private func navigateLeft() {
-        guard let item = selectedItem else { return }
+        guard let item = focusedItem ?? selectedItem else { return }
         if item.isFolder && expandedFolders.contains(item.url) {
             expandedFolders.remove(item.url)
         } else if let parent = findParent(of: item, in: vaultManager.rootItems) {
-            selectedItem = parent
+            focusedItem = parent
         }
     }
 
     private func navigateRight() {
-        guard let item = selectedItem, item.isFolder else { return }
+        guard let item = focusedItem ?? selectedItem, item.isFolder else { return }
         if expandedFolders.contains(item.url) {
-            if let first = item.children?.first { selectedItem = first }
+            if let first = item.children?.first { focusedItem = first }
         } else {
             expandedFolders.insert(item.url)
         }
     }
 
     private func confirmSelection() {
-        guard let item = selectedItem else { return }
+        guard let item = focusedItem ?? selectedItem else { return }
         if item.isFolder {
             toggleFolder(item)
         } else {
+            selectedItem = item
+            focusedItem = item
             sidebarFocused = false
             if let tv = findFirstView(ofType: NSTextView.self, in: NSApp.keyWindow?.contentView) {
                 NSApp.keyWindow?.makeFirstResponder(tv)
