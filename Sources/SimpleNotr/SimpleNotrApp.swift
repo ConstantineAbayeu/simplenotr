@@ -19,6 +19,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
 struct SimpleNotrApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var vaultManager = VaultManager()
+    @AppStorage("sn.vimModeEnabled") private var vimModeEnabled = false
 
     var body: some Scene {
         WindowGroup {
@@ -52,6 +53,10 @@ struct SimpleNotrApp: App {
                     NotificationCenter.default.post(name: .openVault, object: nil)
                 }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
+            }
+
+            CommandMenu("View") {
+                Toggle("Vim Mode", isOn: $vimModeEnabled)
             }
 
             CommandMenu("Navigate") {

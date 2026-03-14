@@ -10,31 +10,50 @@ struct PlainTextEditorView: NSViewRepresentable {
     var onChange: (() -> Void)?
     var restoreCursorTo: Int = 0
     var onCursorPositionChange: ((Int) -> Void)?
+    var isVimEnabled: Bool = false
+    var onVimModeChange: ((String) -> Void)?
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSTextView.scrollableTextView()
-        guard let textView = scrollView.documentView as? NSTextView else { return scrollView }
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller   = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers    = true
+        scrollView.borderType            = .noBorder
+
+        let textView = VimTextView()
 
         // ── Security: disable all automatic processing ──────────────────────
-        textView.isAutomaticLinkDetectionEnabled    = false
-        textView.isAutomaticDataDetectionEnabled    = false
-        textView.isAutomaticTextReplacementEnabled  = false
+        textView.isAutomaticLinkDetectionEnabled      = false
+        textView.isAutomaticDataDetectionEnabled      = false
+        textView.isAutomaticTextReplacementEnabled    = false
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.isAutomaticQuoteSubstitutionEnabled  = false
         textView.isAutomaticDashSubstitutionEnabled   = false
         // ────────────────────────────────────────────────────────────────────
 
-        textView.isRichText  = false
-        textView.allowsUndo  = true
-        textView.isEditable  = true
+        textView.isRichText   = false
+        textView.allowsUndo   = true
+        textView.isEditable   = true
         textView.isSelectable = true
         textView.usesFindBar  = true
         textView.font = font
         textView.drawsBackground = false
         textView.textContainerInset = NSSize(width: 20, height: 20)
 
-        textView.delegate = context.coordinator
-        textView.string   = text
+        textView.isVerticallyResizable   = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask        = [.width]
+        textView.textContainer?.widthTracksTextView    = true
+        textView.textContainer?.heightTracksTextView   = false
+
+        textView.delegate   = context.coordinator
+        textView.string     = text
+
+        textView.vimEnabled   = isVimEnabled
+        textView.onModeChange = onVimModeChange
+
+        scrollView.documentView = textView
+        context.coordinator.trackedTextView = textView
 
         DispatchQueue.main.async {
             textView.window?.makeFirstResponder(textView)
@@ -44,21 +63,28 @@ struct PlainTextEditorView: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        guard let textView = scrollView.documentView as? NSTextView else { return }
-        // Only update if the model changed externally (e.g. file switch)
+        guard let textView = scrollView.documentView as? VimTextView else { return }
+
         if textView.string != text {
             textView.string = text
             let safeLoc = min(restoreCursorTo, (text as NSString).length)
             textView.setSelectedRange(NSRange(location: safeLoc, length: 0))
             textView.scrollRangeToVisible(NSRange(location: safeLoc, length: 0))
             textView.window?.makeFirstResponder(textView)
+            // Reset vim to normal mode when the file changes
+            if isVimEnabled { textView.resetToNormal() }
         }
-        // Keep closures fresh so they always reference the current EditorView instance.
-        context.coordinator.onChange = onChange
+
+        // Keep closures and settings fresh on every update.
+        context.coordinator.onChange             = onChange
         context.coordinator.onCursorPositionChange = onCursorPositionChange
+        context.coordinator.trackedTextView      = textView
+
+        textView.vimEnabled   = isVimEnabled
+        textView.onModeChange = onVimModeChange
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text, onChange: onChange) }
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
     // MARK: - Coordinator
 
@@ -66,11 +92,9 @@ struct PlainTextEditorView: NSViewRepresentable {
         @Binding var text: String
         var onChange: (() -> Void)?
         var onCursorPositionChange: ((Int) -> Void)?
+        weak var trackedTextView: NSTextView?
 
-        init(text: Binding<String>, onChange: (() -> Void)?) {
-            _text = text
-            self.onChange = onChange
-        }
+        init(text: Binding<String>) { _text = text }
 
         func textDidChange(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView, tv.string != text else { return }

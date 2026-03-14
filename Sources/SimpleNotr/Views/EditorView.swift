@@ -7,6 +7,9 @@ struct EditorView: View {
     @Binding var selectedItem: NoteItem?
     @Binding var cursorPositions: [URL: Int]
 
+    @AppStorage("sn.vimModeEnabled") private var vimModeEnabled = false
+    @State private var vimModeLabel: String = "NORMAL"
+
     @State private var content: String = ""
     @State private var saveStatus: SaveStatus = .saved
     @State private var saveTask: Task<Void, Never>?
@@ -24,17 +27,33 @@ struct EditorView: View {
     }
 
     var body: some View {
-        editorContent
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onAppear { loadContent() }
-            .onChange(of: item) { newItem in
-                cursorPositions[fileURL] = currentCursorPosition
-                flushSave()
-                fileURL = newItem.url
-                currentCursorPosition = cursorPositions[newItem.url] ?? 0
-                loadContent()
+        VStack(spacing: 0) {
+            editorContent
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if vimModeEnabled {
+                Divider()
+                HStack(spacing: 0) {
+                    Text("-- \(vimModeLabel) --")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 3)
+                    Spacer()
+                }
+                .background(Color(NSColor.controlBackgroundColor))
             }
-            .onDisappear { flushSave() }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { loadContent() }
+        .onChange(of: item) { newItem in
+            cursorPositions[fileURL] = currentCursorPosition
+            flushSave()
+            fileURL = newItem.url
+            currentCursorPosition = cursorPositions[newItem.url] ?? 0
+            vimModeLabel = "NORMAL"
+            loadContent()
+        }
+        .onDisappear { flushSave() }
     }
 
     @ViewBuilder
@@ -55,7 +74,9 @@ struct EditorView: View {
                 font: .monospacedSystemFont(ofSize: 14, weight: .regular),
                 onChange: scheduleAutosave,
                 restoreCursorTo: currentCursorPosition,
-                onCursorPositionChange: { currentCursorPosition = $0 }
+                onCursorPositionChange: { currentCursorPosition = $0 },
+                isVimEnabled: vimModeEnabled,
+                onVimModeChange: { vimModeLabel = $0 }
             )
             .frame(minWidth: 220, maxWidth: .infinity, maxHeight: .infinity)
 
@@ -74,7 +95,9 @@ struct EditorView: View {
             font: .systemFont(ofSize: 14),
             onChange: scheduleAutosave,
             restoreCursorTo: currentCursorPosition,
-            onCursorPositionChange: { currentCursorPosition = $0 }
+            onCursorPositionChange: { currentCursorPosition = $0 },
+            isVimEnabled: vimModeEnabled,
+            onVimModeChange: { vimModeLabel = $0 }
         )
     }
 
