@@ -20,7 +20,8 @@ struct SimpleNotrApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var vaultManager = VaultManager()
     @AppStorage("sn.vimModeEnabled") private var vimModeEnabled = false
-    @AppStorage("sn.fontSize") private var fontSize: Double = 14
+    @AppStorage("sn.fontSize")       private var fontSize: Double = 14
+    @AppStorage("sn.showPreview")    private var showPreview = true
 
     var body: some Scene {
         WindowGroup {
@@ -62,6 +63,9 @@ struct SimpleNotrApp: App {
 
             CommandMenu("View") {
                 Toggle("Vim Mode", isOn: $vimModeEnabled)
+                Divider()
+                Toggle("Preview", isOn: $showPreview)
+                    .keyboardShortcut("p", modifiers: .command)
                 Divider()
                 Button("Zoom In")      { fontSize = min(fontSize + 2, 48) }
                     .keyboardShortcut("+", modifiers: .command)

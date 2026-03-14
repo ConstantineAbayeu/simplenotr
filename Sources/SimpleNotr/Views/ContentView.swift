@@ -8,6 +8,13 @@ struct ContentView: View {
     @State private var cmdWMonitor: Any?
     @State private var cursorPositions: [URL: Int] = [:]
 
+    @AppStorage("sn.showPreview")   private var showPreview = true
+    @AppStorage("sn.previewLayout") private var previewLayoutRaw = "sideBySide"
+
+    private var selectedHasPreview: Bool {
+        selectedItem?.noteType == .markdown || selectedItem?.noteType == .mermaid
+    }
+
     var body: some View {
         Group {
             if vaultManager.vaultURL == nil {
@@ -25,6 +32,46 @@ struct ContentView: View {
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .topTrailing) {
+                        if selectedHasPreview {
+                            HStack(spacing: 2) {
+                                if showPreview {
+                                    Menu {
+                                        Button {
+                                            previewLayoutRaw = "sideBySide"
+                                        } label: {
+                                            Label("Side by Side", systemImage: "rectangle.split.2x1")
+                                        }
+                                        Button {
+                                            previewLayoutRaw = "topBottom"
+                                        } label: {
+                                            Label("Top / Bottom", systemImage: "rectangle.split.1x2")
+                                        }
+                                    } label: {
+                                        Image(systemName: previewLayoutRaw == "sideBySide"
+                                              ? "rectangle.split.2x1"
+                                              : "rectangle.split.1x2")
+                                        .frame(width: 24, height: 24)
+                                    }
+                                    .menuStyle(.borderlessButton)
+                                    .fixedSize()
+                                    .help("Preview Layout")
+                                }
+                                Button {
+                                    showPreview.toggle()
+                                } label: {
+                                    Image(systemName: showPreview ? "eye.slash" : "eye")
+                                        .frame(width: 24, height: 24)
+                                }
+                                .buttonStyle(.borderless)
+                                .help(showPreview ? "Hide Preview (⌘P)" : "Show Preview (⌘P)")
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
+                            .padding(8)
+                        }
+                    }
                     .toolbar {
                         ToolbarItem(placement: .navigation) {
                             TabBarView(openItems: $openItems, selectedItem: $selectedItem)
