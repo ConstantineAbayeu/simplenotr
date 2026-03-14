@@ -6,12 +6,14 @@ enum VimMode: Equatable {
     case normal
     case insert
     case visual(anchor: Int, cursor: Int, linewise: Bool)
+    case command(String)
 
     var label: String {
         switch self {
         case .normal:                         return "NORMAL"
         case .insert:                         return "INSERT"
         case .visual(_, _, let lw):           return lw ? "V-LINE" : "VISUAL"
+        case .command(let buf):               return ":\(buf)"
         }
     }
 }
@@ -21,9 +23,13 @@ enum VimMode: Equatable {
 final class VimTextView: NSTextView {
 
     var vimEnabled: Bool = false {
-        didSet { if !vimEnabled { mode = .insert } }
+        didSet {
+            if !vimEnabled { mode = .insert }
+            updateCursorAppearance()
+        }
     }
     var onModeChange: ((String) -> Void)?
+    var onCommand: ((String) -> Void)?
 
     func resetToNormal() {
         pending = .none
@@ -34,7 +40,17 @@ final class VimTextView: NSTextView {
         didSet {
             guard mode != oldValue else { return }
             onModeChange?(mode.label)
+            updateCursorAppearance()
             needsDisplay = true
+        }
+    }
+
+    private func updateCursorAppearance() {
+        switch mode {
+        case .normal, .command:
+            insertionPointColor = vimEnabled ? .clear : .labelColor
+        case .insert, .visual:
+            insertionPointColor = .labelColor
         }
     }
 
@@ -50,35 +66,30 @@ final class VimTextView: NSTextView {
 
     // MARK: - Block cursor
 
-    override func drawInsertionPoint(in rect: NSRect, color: NSColor, turnedOn flag: Bool) {
-        guard vimEnabled, case .normal = mode else {
-            super.drawInsertionPoint(in: rect, color: color, turnedOn: flag)
-            return
-        }
-        guard flag else { return }
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        drawBlockCursorIfNeeded()
+    }
 
-        var blockRect = rect
+    private func drawBlockCursorIfNeeded() {
+        guard vimEnabled, case .normal = mode else { return }
+        guard window?.firstResponder === self else { return }
+
         let pos = selectedRange().location
         let str = string as NSString
+        guard pos < str.length, str.character(at: pos) != 10 else { return }
+        guard let lm = layoutManager, let tc = textContainer else { return }
 
-        if pos < str.length, str.character(at: pos) != 10,
-           let lm = layoutManager, let tc = textContainer {
-            let gr = lm.glyphRange(forCharacterRange: NSRange(location: pos, length: 1),
-                                   actualCharacterRange: nil)
-            if gr.length > 0 {
-                var r = lm.boundingRect(forGlyphRange: gr, in: tc)
-                r.origin.x += textContainerOrigin.x
-                r.origin.y += textContainerOrigin.y
-                blockRect = r
-            } else {
-                blockRect.size.width = font?.maximumAdvancement.width ?? 8
-            }
-        } else {
-            blockRect.size.width = font?.maximumAdvancement.width ?? 8
-        }
+        let gr = lm.glyphRange(forCharacterRange: NSRange(location: pos, length: 1),
+                               actualCharacterRange: nil)
+        guard gr.length > 0 else { return }
+
+        var r = lm.boundingRect(forGlyphRange: gr, in: tc)
+        r.origin.x += textContainerOrigin.x
+        r.origin.y += textContainerOrigin.y
 
         NSColor.labelColor.withAlphaComponent(0.35).setFill()
-        blockRect.fill()
+        r.fill()
     }
 
     // MARK: - Key dispatch
@@ -92,6 +103,37 @@ final class VimTextView: NSTextView {
             handleNormal(event)
         case .visual(let a, let c, let lw):
             handleVisual(event, anchor: a, cursor: c, linewise: lw)
+        case .command(let buf):
+            handleCommand(event, buffer: buf)
+        }
+    }
+
+    // MARK: - Command-line mode
+
+    private func handleCommand(_ event: NSEvent, buffer: String) {
+        let keyCode = event.keyCode
+
+        // Escape → cancel
+        if keyCode == 53 { mode = .normal; return }
+
+        // Enter (main or numpad) → execute
+        if keyCode == 36 || keyCode == 76 {
+            let cmd = buffer
+            mode = .normal
+            onCommand?(cmd)
+            return
+        }
+
+        // Backspace
+        if keyCode == 51 {
+            mode = buffer.isEmpty ? .normal : .command(String(buffer.dropLast()))
+            return
+        }
+
+        // Printable chars only (no ⌘/⌃/⌥)
+        let mods = event.modifierFlags.intersection([.command, .control, .option])
+        if mods.isEmpty || mods == .shift, let chars = event.characters, !chars.isEmpty {
+            mode = .command(buffer + chars)
         }
     }
 
@@ -197,6 +239,9 @@ final class VimTextView: NSTextView {
             let pos = selectedRange().location
             mode = .visual(anchor: pos, cursor: pos, linewise: true)
             updateVisualSelection(anchor: pos, cursor: pos, linewise: true)
+        // Command-line
+        case ":":
+            mode = .command("")
         default: break
         }
     }

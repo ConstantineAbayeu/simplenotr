@@ -12,6 +12,7 @@ struct PlainTextEditorView: NSViewRepresentable {
     var onCursorPositionChange: ((Int) -> Void)?
     var isVimEnabled: Bool = false
     var onVimModeChange: ((String) -> Void)?
+    var onCommand: ((String) -> Void)?
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
@@ -51,6 +52,7 @@ struct PlainTextEditorView: NSViewRepresentable {
 
         textView.vimEnabled   = isVimEnabled
         textView.onModeChange = onVimModeChange
+        textView.onCommand    = onCommand
 
         scrollView.documentView = textView
         context.coordinator.trackedTextView = textView
@@ -82,6 +84,7 @@ struct PlainTextEditorView: NSViewRepresentable {
 
         textView.vimEnabled   = isVimEnabled
         textView.onModeChange = onVimModeChange
+        textView.onCommand    = onCommand
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
@@ -105,6 +108,10 @@ struct PlainTextEditorView: NSViewRepresentable {
         func textViewDidChangeSelection(_ notification: Notification) {
             guard let tv = notification.object as? NSTextView else { return }
             onCursorPositionChange?(tv.selectedRange().location)
+            // Redraw block cursor at new position
+            if let vtv = tv as? VimTextView, vtv.vimEnabled {
+                vtv.needsDisplay = true
+            }
         }
     }
 }

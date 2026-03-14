@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Editor View
 
@@ -9,6 +10,7 @@ struct EditorView: View {
 
     @AppStorage("sn.vimModeEnabled") private var vimModeEnabled = false
     @State private var vimModeLabel: String = "NORMAL"
+    @State private var commandFeedback: String? = nil
 
     @State private var content: String = ""
     @State private var saveStatus: SaveStatus = .saved
@@ -33,7 +35,7 @@ struct EditorView: View {
             if vimModeEnabled {
                 Divider()
                 HStack(spacing: 0) {
-                    Text("-- \(vimModeLabel) --")
+                    Text(statusBarText)
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 12)
@@ -51,9 +53,18 @@ struct EditorView: View {
             fileURL = newItem.url
             currentCursorPosition = cursorPositions[newItem.url] ?? 0
             vimModeLabel = "NORMAL"
+            commandFeedback = nil
             loadContent()
         }
         .onDisappear { flushSave() }
+        .onReceive(NotificationCenter.default.publisher(for: .saveAll)) { _ in save() }
+    }
+
+    // Status bar shows feedback (errors) first, then command-line input, then mode.
+    private var statusBarText: String {
+        if let fb = commandFeedback { return fb }
+        if vimModeLabel.hasPrefix(":") { return vimModeLabel }
+        return "-- \(vimModeLabel) --"
     }
 
     @ViewBuilder
@@ -76,7 +87,8 @@ struct EditorView: View {
                 restoreCursorTo: currentCursorPosition,
                 onCursorPositionChange: { currentCursorPosition = $0 },
                 isVimEnabled: vimModeEnabled,
-                onVimModeChange: { vimModeLabel = $0 }
+                onVimModeChange: { vimModeLabel = $0 },
+                onCommand: handleExCommand
             )
             .frame(minWidth: 220, maxWidth: .infinity, maxHeight: .infinity)
 
@@ -97,8 +109,56 @@ struct EditorView: View {
             restoreCursorTo: currentCursorPosition,
             onCursorPositionChange: { currentCursorPosition = $0 },
             isVimEnabled: vimModeEnabled,
-            onVimModeChange: { vimModeLabel = $0 }
+            onVimModeChange: { vimModeLabel = $0 },
+            onCommand: handleExCommand
         )
+    }
+
+    // MARK: - Ex commands (:w, :q, :wq, :qa, :wqa)
+
+    private func handleExCommand(_ raw: String) {
+        let force = raw.hasSuffix("!")
+        let cmd   = force ? String(raw.dropLast()) : raw
+
+        switch cmd {
+        case "w":
+            save()
+
+        case "q":
+            if !force && saveStatus == .unsaved {
+                showFeedback("E37: No write since last change (add ! to override)")
+            } else {
+                NotificationCenter.default.post(name: .closeTab, object: nil)
+            }
+
+        case "wq":
+            save()
+            NotificationCenter.default.post(name: .closeTab, object: nil)
+
+        case "qa":
+            if !force && saveStatus == .unsaved {
+                showFeedback("E37: No write since last change (add ! to override)")
+            } else {
+                NSApp.terminate(nil)
+            }
+
+        case "wa":
+            NotificationCenter.default.post(name: .saveAll, object: nil)
+
+        case "wqa":
+            NotificationCenter.default.post(name: .saveAll, object: nil)
+            NSApp.terminate(nil)
+
+        default:
+            showFeedback("E492: Not an editor command: \(raw)")
+        }
+    }
+
+    private func showFeedback(_ message: String) {
+        commandFeedback = message
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            commandFeedback = nil
+        }
     }
 
     // MARK: - File I/O

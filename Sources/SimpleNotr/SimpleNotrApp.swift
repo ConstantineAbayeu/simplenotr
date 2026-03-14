@@ -96,6 +96,7 @@ extension Notification.Name {
     static let newFolder       = Notification.Name("sn.newFolder")
     static let openVault       = Notification.Name("sn.openVault")
     static let navigateToNote  = Notification.Name("sn.navigateToNote")
+    static let saveAll         = Notification.Name("sn.saveAll")
     static let nextTab         = Notification.Name("sn.nextTab")
     static let previousTab     = Notification.Name("sn.previousTab")
     static let focusSidebar    = Notification.Name("sn.focusSidebar")
