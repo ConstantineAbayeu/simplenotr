@@ -5,18 +5,22 @@ import SwiftUI
 struct EditorView: View {
     let item: NoteItem
     @Binding var selectedItem: NoteItem?
+    @Binding var cursorPositions: [URL: Int]
 
     @State private var content: String = ""
     @State private var saveStatus: SaveStatus = .saved
     @State private var saveTask: Task<Void, Never>?
     @State private var fileURL: URL
+    @State private var currentCursorPosition: Int = 0
 
     private enum SaveStatus { case saved, unsaved, saving }
 
-    init(item: NoteItem, selectedItem: Binding<NoteItem?>) {
+    init(item: NoteItem, selectedItem: Binding<NoteItem?>, cursorPositions: Binding<[URL: Int]>) {
         self.item = item
         self._selectedItem = selectedItem
+        self._cursorPositions = cursorPositions
         self._fileURL = State(initialValue: item.url)
+        self._currentCursorPosition = State(initialValue: cursorPositions.wrappedValue[item.url] ?? 0)
     }
 
     var body: some View {
@@ -24,8 +28,10 @@ struct EditorView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onAppear { loadContent() }
             .onChange(of: item) { newItem in
+                cursorPositions[fileURL] = currentCursorPosition
                 flushSave()
                 fileURL = newItem.url
+                currentCursorPosition = cursorPositions[newItem.url] ?? 0
                 loadContent()
             }
             .onDisappear { flushSave() }
@@ -47,7 +53,9 @@ struct EditorView: View {
             PlainTextEditorView(
                 text: $content,
                 font: .monospacedSystemFont(ofSize: 14, weight: .regular),
-                onChange: scheduleAutosave
+                onChange: scheduleAutosave,
+                restoreCursorTo: currentCursorPosition,
+                onCursorPositionChange: { currentCursorPosition = $0 }
             )
             .frame(minWidth: 220, maxWidth: .infinity, maxHeight: .infinity)
 
@@ -64,7 +72,9 @@ struct EditorView: View {
         PlainTextEditorView(
             text: $content,
             font: .systemFont(ofSize: 14),
-            onChange: scheduleAutosave
+            onChange: scheduleAutosave,
+            restoreCursorTo: currentCursorPosition,
+            onCursorPositionChange: { currentCursorPosition = $0 }
         )
     }
 

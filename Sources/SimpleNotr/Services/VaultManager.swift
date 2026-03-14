@@ -9,7 +9,7 @@ final class VaultManager: ObservableObject {
     private let bookmarkKey = "vaultBookmarkData_v1"
 
     init() {
-        Task { await restoreVault() }
+        restoreVault()
     }
 
     // MARK: - Vault Lifecycle
@@ -21,7 +21,7 @@ final class VaultManager: ObservableObject {
         refreshFileTree()
     }
 
-    private func restoreVault() async {
+    private func restoreVault() {
         guard let data = UserDefaults.standard.data(forKey: bookmarkKey) else { return }
         do {
             var stale = false

@@ -8,6 +8,8 @@ struct PlainTextEditorView: NSViewRepresentable {
     @Binding var text: String
     var font: NSFont = .monospacedSystemFont(ofSize: 14, weight: .regular)
     var onChange: (() -> Void)?
+    var restoreCursorTo: Int = 0
+    var onCursorPositionChange: ((Int) -> Void)?
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSTextView.scrollableTextView()
@@ -34,6 +36,10 @@ struct PlainTextEditorView: NSViewRepresentable {
         textView.delegate = context.coordinator
         textView.string   = text
 
+        DispatchQueue.main.async {
+            textView.window?.makeFirstResponder(textView)
+        }
+
         return scrollView
     }
 
@@ -41,14 +47,15 @@ struct PlainTextEditorView: NSViewRepresentable {
         guard let textView = scrollView.documentView as? NSTextView else { return }
         // Only update if the model changed externally (e.g. file switch)
         if textView.string != text {
-            let sel = textView.selectedRange()
             textView.string = text
-            let safeLoc = min(sel.location, (text as NSString).length)
+            let safeLoc = min(restoreCursorTo, (text as NSString).length)
             textView.setSelectedRange(NSRange(location: safeLoc, length: 0))
+            textView.scrollRangeToVisible(NSRange(location: safeLoc, length: 0))
+            textView.window?.makeFirstResponder(textView)
         }
-        // Keep the coordinator's onChange closure fresh so it always references
-        // the current EditorView instance's scheduleAutosave.
+        // Keep closures fresh so they always reference the current EditorView instance.
         context.coordinator.onChange = onChange
+        context.coordinator.onCursorPositionChange = onCursorPositionChange
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text, onChange: onChange) }
@@ -58,6 +65,7 @@ struct PlainTextEditorView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         @Binding var text: String
         var onChange: (() -> Void)?
+        var onCursorPositionChange: ((Int) -> Void)?
 
         init(text: Binding<String>, onChange: (() -> Void)?) {
             _text = text
@@ -68,6 +76,11 @@ struct PlainTextEditorView: NSViewRepresentable {
             guard let tv = notification.object as? NSTextView, tv.string != text else { return }
             text = tv.string
             onChange?()
+        }
+
+        func textViewDidChangeSelection(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView else { return }
+            onCursorPositionChange?(tv.selectedRange().location)
         }
     }
 }

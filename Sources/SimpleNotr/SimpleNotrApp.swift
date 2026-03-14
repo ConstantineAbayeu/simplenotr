@@ -9,6 +9,10 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
 }
 
 @main
@@ -63,6 +67,13 @@ struct SimpleNotrApp: App {
 
                 Divider()
 
+                Button("Close Tab") {
+                    NotificationCenter.default.post(name: .closeTab, object: nil)
+                }
+                .keyboardShortcut("w", modifiers: [.command])
+
+                Divider()
+
                 Button("Focus File Tree") {
                     NotificationCenter.default.post(name: .focusSidebar, object: nil)
                 }
@@ -83,4 +94,5 @@ extension Notification.Name {
     static let nextTab         = Notification.Name("sn.nextTab")
     static let previousTab     = Notification.Name("sn.previousTab")
     static let focusSidebar    = Notification.Name("sn.focusSidebar")
+    static let closeTab        = Notification.Name("sn.closeTab")
 }

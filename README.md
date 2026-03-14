@@ -63,6 +63,33 @@ swift build -c release
 # Binary at: .build/release/SimpleNotr
 ```
 
+## Tests
+
+The test suite uses [Swift Testing](https://developer.apple.com/xcode/swift-testing/) and covers `MarkdownProcessor`, `VaultManager`, and `NoteItem`/`NoteType`.
+
+### Run with Xcode (recommended)
+
+```bash
+swift test
+```
+
+Requires Xcode to be installed and selected as the active developer tools:
+
+```bash
+sudo xcode-select --switch /Applications/Xcode.app
+swift test
+```
+
+### Command Line Tools only
+
+If only CLT is installed (`xcode-select -p` returns `/Library/Developer/CommandLineTools`), the tests will **compile** but cannot be executed — the `xctest` runner that loads `.xctest` bundles ships with Xcode, not CLT.
+
+To verify the tests compile:
+
+```bash
+swift build --target SimpleNotrTests
+```
+
 ## Project Structure
 
 ```

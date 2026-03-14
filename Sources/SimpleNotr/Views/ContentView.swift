@@ -5,6 +5,8 @@ struct ContentView: View {
     @State private var selectedItem: NoteItem?
     @State private var openItems: [NoteItem] = []
     @State private var showVaultPicker = false
+    @State private var cmdWMonitor: Any?
+    @State private var cursorPositions: [URL: Int] = [:]
 
     var body: some View {
         Group {
@@ -17,7 +19,7 @@ struct ContentView: View {
                 } detail: {
                     Group {
                         if let item = selectedItem, !item.isFolder {
-                            EditorView(item: item, selectedItem: $selectedItem)
+                            EditorView(item: item, selectedItem: $selectedItem, cursorPositions: $cursorPositions)
                         } else {
                             EmptyEditorView()
                         }
@@ -67,12 +69,37 @@ struct ContentView: View {
             openItems = []
             selectedItem = nil
         }
+        .onReceive(NotificationCenter.default.publisher(for: .closeTab)) { _ in
+            closeActiveTab()
+        }
+        .onAppear {
+            cmdWMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                if event.keyCode == 13 && event.modifierFlags.contains(.command) && !self.openItems.isEmpty {
+                    NotificationCenter.default.post(name: .closeTab, object: nil)
+                    return nil
+                }
+                return event
+            }
+        }
+        .onDisappear {
+            if let m = cmdWMonitor { NSEvent.removeMonitor(m) }
+            cmdWMonitor = nil
+        }
         .onReceive(NotificationCenter.default.publisher(for: .nextTab)) { _ in
             navigateTabs(by: 1)
         }
         .onReceive(NotificationCenter.default.publisher(for: .previousTab)) { _ in
             navigateTabs(by: -1)
         }
+    }
+
+    private func closeActiveTab() {
+        guard let current = selectedItem, let idx = openItems.firstIndex(of: current) else {
+            if !openItems.isEmpty { openItems.removeLast() }
+            return
+        }
+        openItems.remove(at: idx)
+        selectedItem = openItems.isEmpty ? nil : openItems[min(idx, openItems.count - 1)]
     }
 
     private func navigateTabs(by offset: Int) {
