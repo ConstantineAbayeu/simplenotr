@@ -55,6 +55,12 @@ struct PlainTextEditorView: NSViewRepresentable {
         textView.onCommand    = onCommand
 
         scrollView.documentView = textView
+
+        let ruler = LineNumberRulerView(scrollView: scrollView, textView: textView)
+        scrollView.verticalRulerView = ruler
+        scrollView.hasVerticalRuler  = true
+        scrollView.rulersVisible     = true
+
         context.coordinator.trackedTextView = textView
 
         DispatchQueue.main.async {
@@ -76,6 +82,8 @@ struct PlainTextEditorView: NSViewRepresentable {
             // Reset vim to normal mode when the file changes
             if isVimEnabled { textView.resetToNormal() }
         }
+
+        if textView.font != font { textView.font = font }
 
         // Keep closures and settings fresh on every update.
         context.coordinator.onChange             = onChange

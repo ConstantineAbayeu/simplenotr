@@ -120,6 +120,12 @@ final class VimTextView: NSTextView {
         if keyCode == 36 || keyCode == 76 {
             let cmd = buffer
             mode = .normal
+            // Pure number → jump to line
+            if !cmd.isEmpty, cmd.allSatisfy({ $0.isNumber }),
+               let lineNum = Int(cmd), lineNum > 0 {
+                jumpToLine(lineNum)
+                return
+            }
             onCommand?(cmd)
             return
         }
@@ -416,6 +422,18 @@ final class VimTextView: NSTextView {
         moveToEndOfLine(nil)
         let pos = selectedRange().location
         insertText("\n", replacementRange: NSRange(location: pos, length: 0))
+    }
+
+    private func jumpToLine(_ target: Int) {
+        let str = string as NSString
+        var line = 1
+        var idx  = 0
+        while idx < str.length, line < target {
+            if str.character(at: idx) == 10 { line += 1 }
+            idx += 1
+        }
+        setSelectedRange(NSRange(location: idx, length: 0))
+        scrollRangeToVisible(NSRange(location: idx, length: 0))
     }
 
     private func openLineAbove() {

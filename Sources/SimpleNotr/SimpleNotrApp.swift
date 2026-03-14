@@ -20,6 +20,8 @@ struct SimpleNotrApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var vaultManager = VaultManager()
     @AppStorage("sn.vimModeEnabled") private var vimModeEnabled = false
+    @AppStorage("sn.fontSize")       private var fontSize: Double = 14
+    @AppStorage("sn.showPreview")    private var showPreview = true
 
     var body: some Scene {
         WindowGroup {
@@ -41,6 +43,10 @@ struct SimpleNotrApp: App {
                 }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
 
+                Button("New Mermaid Diagram") {
+                    NotificationCenter.default.post(name: .newMermaidNote, object: nil)
+                }
+
                 Button("New Folder") {
                     NotificationCenter.default.post(name: .newFolder, object: nil)
                 }
@@ -57,6 +63,16 @@ struct SimpleNotrApp: App {
 
             CommandMenu("View") {
                 Toggle("Vim Mode", isOn: $vimModeEnabled)
+                Divider()
+                Toggle("Preview", isOn: $showPreview)
+                    .keyboardShortcut("p", modifiers: .command)
+                Divider()
+                Button("Zoom In")      { fontSize = min(fontSize + 2, 48) }
+                    .keyboardShortcut("+", modifiers: .command)
+                Button("Zoom Out")     { fontSize = max(fontSize - 2, 8) }
+                    .keyboardShortcut("-", modifiers: .command)
+                Button("Actual Size")  { fontSize = 14 }
+                    .keyboardShortcut("0", modifiers: .command)
             }
 
             CommandMenu("Navigate") {
@@ -91,8 +107,9 @@ struct SimpleNotrApp: App {
 // MARK: - Notification Names
 
 extension Notification.Name {
-    static let newMarkdownNote = Notification.Name("sn.newMarkdownNote")
-    static let newTextNote     = Notification.Name("sn.newTextNote")
+    static let newMarkdownNote  = Notification.Name("sn.newMarkdownNote")
+    static let newTextNote      = Notification.Name("sn.newTextNote")
+    static let newMermaidNote   = Notification.Name("sn.newMermaidNote")
     static let newFolder       = Notification.Name("sn.newFolder")
     static let openVault       = Notification.Name("sn.openVault")
     static let navigateToNote  = Notification.Name("sn.navigateToNote")

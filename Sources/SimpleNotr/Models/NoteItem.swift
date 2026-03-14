@@ -5,11 +5,13 @@ import Foundation
 enum NoteType: Hashable {
     case text      // .txt
     case markdown  // .md
+    case mermaid   // .mmd
 
     var fileExtension: String {
         switch self {
         case .text:     return "txt"
         case .markdown: return "md"
+        case .mermaid:  return "mmd"
         }
     }
 
@@ -17,6 +19,7 @@ enum NoteType: Hashable {
         switch self {
         case .text:     return "doc.text"
         case .markdown: return "doc.richtext"
+        case .mermaid:  return "square.and.line.vertical.and.square"
         }
     }
 }

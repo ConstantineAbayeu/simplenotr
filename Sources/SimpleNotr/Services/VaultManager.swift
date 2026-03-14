@@ -7,6 +7,7 @@ final class VaultManager: ObservableObject {
     @Published var rootItems: [NoteItem] = []
 
     private let bookmarkKey = "vaultBookmarkData_v1"
+    private let pathKey     = "vaultPath_v1"
 
     init() {
         restoreVault()
@@ -22,25 +23,38 @@ final class VaultManager: ObservableObject {
     }
 
     private func restoreVault() {
-        guard let data = UserDefaults.standard.data(forKey: bookmarkKey) else { return }
-        do {
-            var stale = false
-            let url = try URL(
-                resolvingBookmarkData: data,
-                options: [.withSecurityScope],
-                relativeTo: nil,
-                bookmarkDataIsStale: &stale
-            )
-            _ = url.startAccessingSecurityScopedResource()
-            if stale { saveBookmark(for: url) }
+        // Try security-scoped bookmark first (works for signed/sandboxed builds)
+        if let data = UserDefaults.standard.data(forKey: bookmarkKey) {
+            do {
+                var stale = false
+                let url = try URL(
+                    resolvingBookmarkData: data,
+                    options: [.withSecurityScope],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &stale
+                )
+                _ = url.startAccessingSecurityScopedResource()
+                if stale { saveBookmark(for: url) }
+                vaultURL = url
+                refreshFileTree()
+                return
+            } catch {
+                UserDefaults.standard.removeObject(forKey: bookmarkKey)
+            }
+        }
+        // Fallback: plain path saved alongside the bookmark (reliable for unsigned SPM builds)
+        if let path = UserDefaults.standard.string(forKey: pathKey) {
+            let url = URL(fileURLWithPath: path)
+            guard FileManager.default.fileExists(atPath: path) else { return }
             vaultURL = url
             refreshFileTree()
-        } catch {
-            UserDefaults.standard.removeObject(forKey: bookmarkKey)
         }
     }
 
     private func saveBookmark(for url: URL) {
+        // Always persist the plain path — works regardless of code-signing state
+        UserDefaults.standard.set(url.path, forKey: pathKey)
+        // Also persist a security-scoped bookmark for future signed/sandboxed distribution
         if let data = try? url.bookmarkData(
             options: [.withSecurityScope],
             includingResourceValuesForKeys: nil,
@@ -86,12 +100,18 @@ final class VaultManager: ObservableObject {
                 ))
             } else {
                 let ext = url.pathExtension.lowercased()
-                guard ext == "txt" || ext == "md" else { continue }
+                let noteType: NoteType
+                switch ext {
+                case "md":  noteType = .markdown
+                case "mmd": noteType = .mermaid
+                case "txt": noteType = .text
+                default: continue
+                }
                 items.append(NoteItem(
                     id: url, url: url,
                     name: url.deletingPathExtension().lastPathComponent,
                     isFolder: false,
-                    noteType: ext == "md" ? .markdown : .text,
+                    noteType: noteType,
                     children: nil
                 ))
             }
