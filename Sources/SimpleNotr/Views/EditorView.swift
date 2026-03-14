@@ -9,6 +9,7 @@ struct EditorView: View {
     @Binding var cursorPositions: [URL: Int]
 
     @AppStorage("sn.vimModeEnabled") private var vimModeEnabled = false
+    @AppStorage("sn.fontSize") private var fontSize: Double = 14
     @State private var vimModeLabel: String = "NORMAL"
     @State private var commandFeedback: String? = nil
 
@@ -82,7 +83,7 @@ struct EditorView: View {
         HSplitView {
             PlainTextEditorView(
                 text: $content,
-                font: .monospacedSystemFont(ofSize: 14, weight: .regular),
+                font: .monospacedSystemFont(ofSize: fontSize, weight: .regular),
                 onChange: scheduleAutosave,
                 restoreCursorTo: currentCursorPosition,
                 onCursorPositionChange: { currentCursorPosition = $0 },
@@ -104,7 +105,7 @@ struct EditorView: View {
     private var plainTextView: some View {
         PlainTextEditorView(
             text: $content,
-            font: .systemFont(ofSize: 14),
+            font: .systemFont(ofSize: fontSize),
             onChange: scheduleAutosave,
             restoreCursorTo: currentCursorPosition,
             onCursorPositionChange: { currentCursorPosition = $0 },

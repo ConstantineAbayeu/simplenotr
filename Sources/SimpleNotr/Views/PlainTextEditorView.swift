@@ -77,6 +77,8 @@ struct PlainTextEditorView: NSViewRepresentable {
             if isVimEnabled { textView.resetToNormal() }
         }
 
+        if textView.font != font { textView.font = font }
+
         // Keep closures and settings fresh on every update.
         context.coordinator.onChange             = onChange
         context.coordinator.onCursorPositionChange = onCursorPositionChange
