@@ -86,12 +86,18 @@ final class VaultManager: ObservableObject {
                 ))
             } else {
                 let ext = url.pathExtension.lowercased()
-                guard ext == "txt" || ext == "md" else { continue }
+                let noteType: NoteType
+                switch ext {
+                case "md":  noteType = .markdown
+                case "mmd": noteType = .mermaid
+                case "txt": noteType = .text
+                default: continue
+                }
                 items.append(NoteItem(
                     id: url, url: url,
                     name: url.deletingPathExtension().lastPathComponent,
                     isFolder: false,
-                    noteType: ext == "md" ? .markdown : .text,
+                    noteType: noteType,
                     children: nil
                 ))
             }

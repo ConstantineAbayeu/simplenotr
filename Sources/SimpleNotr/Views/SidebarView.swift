@@ -27,6 +27,9 @@ struct SidebarView: View {
         .onReceive(NotificationCenter.default.publisher(for: .newTextNote)) { _ in
             createNote(type: .text)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .newMermaidNote)) { _ in
+            createNote(type: .mermaid)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .newFolder)) { _ in
             createFolder()
         }
@@ -130,6 +133,11 @@ struct SidebarView: View {
                     createNote(type: .text)
                 } label: {
                     Label("New Text Note", systemImage: "doc.text")
+                }
+                Button {
+                    createNote(type: .mermaid)
+                } label: {
+                    Label("New Mermaid Diagram", systemImage: "square.and.line.vertical.and.square")
                 }
                 Divider()
                 Button {

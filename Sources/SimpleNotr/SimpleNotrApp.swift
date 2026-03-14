@@ -42,6 +42,10 @@ struct SimpleNotrApp: App {
                 }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
 
+                Button("New Mermaid Diagram") {
+                    NotificationCenter.default.post(name: .newMermaidNote, object: nil)
+                }
+
                 Button("New Folder") {
                     NotificationCenter.default.post(name: .newFolder, object: nil)
                 }
@@ -99,8 +103,9 @@ struct SimpleNotrApp: App {
 // MARK: - Notification Names
 
 extension Notification.Name {
-    static let newMarkdownNote = Notification.Name("sn.newMarkdownNote")
-    static let newTextNote     = Notification.Name("sn.newTextNote")
+    static let newMarkdownNote  = Notification.Name("sn.newMarkdownNote")
+    static let newTextNote      = Notification.Name("sn.newTextNote")
+    static let newMermaidNote   = Notification.Name("sn.newMermaidNote")
     static let newFolder       = Notification.Name("sn.newFolder")
     static let openVault       = Notification.Name("sn.openVault")
     static let navigateToNote  = Notification.Name("sn.navigateToNote")

@@ -70,10 +70,10 @@ struct EditorView: View {
 
     @ViewBuilder
     private var editorContent: some View {
-        if item.noteType == .markdown {
-            markdownSplitView
-        } else {
-            plainTextView
+        switch item.noteType {
+        case .markdown: markdownSplitView
+        case .mermaid:  mermaidSplitView
+        default:        plainTextView
         }
     }
 
@@ -94,6 +94,29 @@ struct EditorView: View {
             .frame(minWidth: 220, maxWidth: .infinity, maxHeight: .infinity)
 
             MarkdownPreviewView(content: content, selectedItem: $selectedItem)
+                .frame(minWidth: 220, maxWidth: .infinity, maxHeight: .infinity)
+                .background(.background)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Split pane for Mermaid
+
+    private var mermaidSplitView: some View {
+        HSplitView {
+            PlainTextEditorView(
+                text: $content,
+                font: .monospacedSystemFont(ofSize: fontSize, weight: .regular),
+                onChange: scheduleAutosave,
+                restoreCursorTo: currentCursorPosition,
+                onCursorPositionChange: { currentCursorPosition = $0 },
+                isVimEnabled: vimModeEnabled,
+                onVimModeChange: { vimModeLabel = $0 },
+                onCommand: handleExCommand
+            )
+            .frame(minWidth: 220, maxWidth: .infinity, maxHeight: .infinity)
+
+            MermaidPreviewView(content: content)
                 .frame(minWidth: 220, maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
         }
